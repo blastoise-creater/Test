@@ -1,0 +1,316 @@
+<!doctype html>
+
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Interactive Learning Dashboard — Single File</title>
+  <meta name="description" content="A single-file interactive learning dashboard: lessons, playground, flashcards, quiz, notes and progress tracking." />
+  <style>
+    :root{
+      --bg:#0f1724; --card:#0b1220; --muted:#9aa4b2; --accent:#06b6d4; --glass:rgba(255,255,255,0.03);
+      --radius:14px; --pad:18px; --maxw:1100px;
+      color-scheme: dark;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0;background:linear-gradient(180deg,#071022 0%, #061123 60%);color:#e6eef6;font-family:Inter,ui-sans-serif,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+    .wrap{max-width:var(--maxw);margin:28px auto;padding:18px}
+    header{display:flex;gap:12px;align-items:center;justify-content:space-between}
+    header h1{font-size:1.2rem;margin:0}
+    .controls{display:flex;gap:8px;align-items:center}
+    button{background:var(--glass);border:1px solid rgba(255,255,255,0.03);padding:8px 12px;border-radius:10px;color:inherit;cursor:pointer}
+    .grid{display:grid;grid-template-columns:1.1fr .9fr;gap:16px;margin-top:16px}
+    .card{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));padding:var(--pad);border-radius:var(--radius);box-shadow:0 6px 18px rgba(3,6,12,0.6)}
+    .topics{display:flex;gap:10px;flex-wrap:wrap}
+    .topic{padding:10px 12px;border-radius:10px;border:1px solid rgba(255,255,255,0.03);background:rgba(255,255,255,0.01);cursor:pointer}
+    .topic.active{outline:2px solid var(--accent)}
+    /* Playground */
+    .playground{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    textarea{width:100%;height:260px;background:#081025;border-radius:10px;border:1px solid rgba(255,255,255,0.03);color:#dfefff;padding:12px;font-family:ui-monospace, SFMono-Regular,Menlo,monospace}
+    iframe.preview{width:100%;height:260px;border-radius:10px;border:1px solid rgba(255,255,255,0.04);background:white}
+    .small{font-size:0.86rem;color:var(--muted)}
+    .row{display:flex;gap:8px;align-items:center}
+    .flashcards{display:flex;gap:10px;overflow:hidden}
+    .card.flash{min-width:220px;max-width:380px;padding:16px;background:linear-gradient(180deg, rgba(255,255,255,0.014), rgba(255,255,255,0.01));cursor:pointer}
+    .quiz-item{margin-top:10px}
+    .hidden{display:none}
+    footer{margin-top:18px;text-align:center;color:var(--muted);font-size:0.86rem}
+    .badge{background:rgba(255,255,255,0.03);padding:6px 8px;border-radius:999px;font-size:0.82rem}
+    .actions{display:flex;gap:8px;flex-wrap:wrap}
+    input[type='text']{padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.03);background:transparent;color:inherit}
+    .progress{height:10px;background:rgba(255,255,255,0.03);border-radius:999px;overflow:hidden}
+    .progress > i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),#60a5fa);width:0%}
+    /* responsiveness */
+    @media (max-width:900px){.grid{grid-template-columns:1fr}.playground{grid-template-columns:1fr}
+     textarea, iframe.preview{height:220px}}
+  </style>
+</head>
+<body>
+  <div class="wrap" role="main">
+    <header>
+      <div>
+        <h1>Interactive Learning Dashboard</h1>
+        <div class="small">Compact single-file learning tool — playground, flashcards, quiz & notes.</div>
+      </div>
+      <div class="controls">
+        <div class="badge" id="statusBadge">Progress: <strong id="progressPct">0%</strong></div>
+        <button id="toggleTheme" title="Toggle light/dark">Toggle Theme</button>
+        <button id="downloadNotes">Download Notes</button>
+      </div>
+    </header><div class="grid">
+  <!-- LEFT: lessons, playground, flashcards -->
+  <section class="card" aria-labelledby="leftTitle">
+    <h2 id="leftTitle">Learn & Practice</h2>
+    <p class="small">Choose a topic, read the short lesson, try code in the playground, then test yourself with a quiz.</p>
+
+    <div style="margin-top:12px">
+      <div class="topics" id="topics">
+        <div class="topic active" data-topic="html">HTML</div>
+        <div class="topic" data-topic="css">CSS</div>
+        <div class="topic" data-topic="javascript">JavaScript</div>
+        <div class="topic" data-topic="accessibility">Accessibility</div>
+        <div class="topic" data-topic="webperf">Web Performance</div>
+      </div>
+    </div>
+
+    <article id="lesson" style="margin-top:12px">
+      <!-- lesson content injected here -->
+    </article>
+
+    <h3 style="margin-top:12px">Playground</h3>
+    <div class="playground" role="region" aria-label="Code playground">
+      <div>
+        <label class="small">HTML / Output</label>
+        <textarea id="editorHtml"><!doctype html>\n<html>\n  <body>\n    <h2>Hello — try editing this!</h2>\n    <p>This preview is isolated (iframe sandbox).</p>\n  </body>\n</html></textarea>
+      </div>
+      <div>
+        <label class="small">Preview</label>
+        <iframe class="preview" id="previewFrame" sandbox="allow-scripts allow-same-origin"></iframe>
+      </div>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <button id="runBtn">Run</button>
+      <button id="resetBtn">Reset</button>
+      <div class="small">Quick tips: edit HTML above and press <strong>Run</strong> to see changes.</div>
+    </div>
+
+    <h3 style="margin-top:14px">Flashcards</h3>
+    <div class="flashcards" id="flashcards" tabindex="0" aria-label="Flashcards area">
+      <!-- cards injected by JS -->
+    </div>
+
+  </section>
+
+  <!-- RIGHT: quiz, notes, stats -->
+  <aside class="card" aria-labelledby="rightTitle">
+    <h2 id="rightTitle">Quiz & Notes</h2>
+    <div class="small">Short quizzes to check understanding. Results saved locally.</div>
+
+    <div style="margin-top:12px">
+      <label for="quizCount" class="small">Questions:</label>
+      <input id="quizCount" type="text" value="3" style="width:60px" />
+      <button id="startQuiz">Start Quiz</button>
+    </div>
+
+    <div id="quizArea" class="quiz-item hidden" aria-live="polite"></div>
+    <div id="quizResult" class="small" style="margin-top:8px"></div>
+
+    <h3 style="margin-top:12px">Notes</h3>
+    <textarea id="notes" style="height:140px" placeholder="Write quick notes here (will persist locally)"></textarea>
+    <div style="margin-top:8px" class="actions">
+      <button id="saveNotes">Save Notes</button>
+      <button id="clearNotes">Clear Notes</button>
+    </div>
+
+    <h3 style="margin-top:12px">Progress</h3>
+    <div class="progress" aria-label="Learning progress"><i id="progressBar"></i></div>
+    <div class="small" style="margin-top:6px">Completed quizzes: <strong id="completedQuizzes">0</strong></div>
+
+  </aside>
+</div>
+
+<footer>
+  Tip: This single-file app uses <strong>localStorage</strong> so your progress & notes stay on your machine only.
+</footer>
+
+  </div>  <script>
+    // --- Data: lessons, flashcards, quiz bank ---
+    const DB = {
+      html: {
+        title: 'HTML — structure of the web',
+        text: `HTML (HyperText Markup Language) is the standard markup language for creating web pages.\n\nMain points:\n• Elements and tags (e.g. <header>, <main>, <footer>)\n• Semantic markup helps accessibility and SEO\n• Use proper nesting and close tags`},
+      css: {
+        title: 'CSS — presentation',
+        text: `CSS (Cascading Style Sheets) controls the presentation.\n\nMain points:\n• Selectors, specificity, box model\n• Flexbox and grid for layout\n• Responsive design with media queries`},
+      javascript: {
+        title: 'JavaScript — interactivity',
+        text: `JavaScript adds interactivity to web pages.\n\nMain points:\n• DOM manipulation (document.querySelector, addEventListener)\n• Event-driven programming\n• Asynchronous JS (Promises, async/await)`
+      },
+      accessibility: {
+        title: 'Accessibility (A11y)',
+        text: `Accessibility ensures people with disabilities can use your site.\n\nMain points:\n• Use semantic HTML and ARIA where needed\n• Ensure keyboard navigability\n• Provide sufficient color contrast and alt text`},
+      webperf: {
+        title: 'Web Performance',
+        text: `Performance helps pages load faster and improves UX.\n\nMain points:\n• Minimize resources, lazy-load images\n• Use efficient formats and caching\n• Measure with Lighthouse/DevTools`},
+      flashcards: [
+        {q:'What does HTML stand for?', a:'HyperText Markup Language'},
+        {q:'Name one CSS layout system.', a:'Flexbox or Grid'},
+        {q:'What does ARIA help with?', a:'Accessibility (assistive technologies)'},
+      ],
+      quizBank: [
+        {q:'Which tag is used for the top-level heading?', options:['<h1>','<title>','<head>','<header>'], ans:0},
+        {q:'Which property sets the background color in CSS?', options:['color','bg','background-color','fill'], ans:2},
+        {q:'Which method selects the first element that matches a CSS selector in JS?', options:['getElementById','querySelector','getElementsByClassName','select'], ans:1},
+        {q:'What does HTTP stand for?', options:['HyperText Transfer Protocol','HyperText Transmission Protocol','High Transfer Text Protocol','Hyper Transfer Test Protocol'], ans:0}
+      ]
+    };
+
+    // --- Utilities ---
+    const $ = s => document.querySelector(s);
+    const $$ = s => Array.from(document.querySelectorAll(s));
+
+    // init topic
+    let activeTopic = 'html';
+    function renderLesson(topic){
+      const data = DB[topic];
+      if(!data) return;
+      const lesson = `<h3>${data.title}</h3><pre style="white-space:pre-wrap;line-height:1.5" class="small">${data.text}</pre>`;$('#lesson').innerHTML = lesson;
+}
+
+// topics click handlers
+$$('#topics .topic').forEach(el=>el.addEventListener('click',()=>{
+  $$('#topics .topic').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  activeTopic = el.dataset.topic;
+  renderLesson(activeTopic);
+}));
+renderLesson(activeTopic);
+
+// Playground run/reset
+function runPreview(){
+  const code = $('#editorHtml').value;
+  const iframe = $('#previewFrame');
+  // Use blob to avoid data URL quirks
+  const blob = new Blob([code], {type:'text/html'});
+  const url = URL.createObjectURL(blob);
+  iframe.src = url;
+  setTimeout(()=>URL.revokeObjectURL(url), 30000);
+}
+$('#runBtn').addEventListener('click', runPreview);
+$('#resetBtn').addEventListener('click', ()=>{
+  $('#editorHtml').value = '<!doctype html>\n<html>\n  <body>\n    <h2>Hello — try editing this!</h2>\n    <p>This preview is isolated (iframe sandbox).</p>\n  </body>\n</html>';
+  runPreview();
+});
+runPreview();
+
+// Flashcards
+function renderFlashcards(){
+  const container = $('#flashcards'); container.innerHTML='';
+  DB.flashcards.forEach((f,idx)=>{
+    const card = document.createElement('div');
+    card.className='card flash';
+    card.tabIndex=0;
+    card.innerHTML = `<strong>Q${idx+1}.</strong> <div style="margin-top:8px">${f.q}</div><div class="small hidden" aria-hidden="true">${f.a}</div>`;
+    card.addEventListener('click', ()=>{
+      const ans = card.querySelector('.small');
+      const hidden = ans.classList.contains('hidden');
+      ans.classList.toggle('hidden', !hidden);
+      ans.setAttribute('aria-hidden', hidden? 'false':'true');
+    });
+    container.appendChild(card);
+  });
+}
+renderFlashcards();
+
+// Quiz engine
+function startQuiz(){
+  const n = Math.max(1,Math.min(10,parseInt($('#quizCount').value||3,10)));
+  const pool = [...DB.quizBank];
+  shuffle(pool);
+  const questions = pool.slice(0,n);
+  let idx=0, score=0;
+  $('#quizArea').classList.remove('hidden');
+  $('#quizArea').innerHTML='';
+  function show(){
+    if(idx>=questions.length){
+      finish(); return;
+    }
+    const q = questions[idx];
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = `<div><strong>Q${idx+1}.</strong> ${q.q}</div>`;
+    const ul = document.createElement('div'); ul.style.marginTop='8px';
+    q.options.forEach((opt,i)=>{
+      const b = document.createElement('button'); b.textContent = opt; b.style.display='block'; b.style.margin='6px 0';
+      b.addEventListener('click', ()=>{
+        if(i===q.ans){ score++; }
+        idx++; show(); updateProgressOnAnswer();
+      });
+      ul.appendChild(b);
+    });
+    $('#quizArea').innerHTML=''; $('#quizArea').appendChild(wrapper); $('#quizArea').appendChild(ul);
+  }
+  show();
+  function finish(){
+    $('#quizArea').classList.add('hidden');
+    $('#quizResult').textContent = `You scored ${score} / ${questions.length}.`;
+    incrementCompletedQuizzes();
+  }
+}
+$('#startQuiz').addEventListener('click', startQuiz);
+
+// small utils
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a}
+
+// notes save/load
+const NOTES_KEY = 'ild_notes_v1';
+const PROGRESS_KEY = 'ild_progress_v1';
+function saveNotes(){localStorage.setItem(NOTES_KEY,$('#notes').value);alert('Notes saved locally.');}
+function loadNotes(){const v = localStorage.getItem(NOTES_KEY)||'';$('#notes').value=v}
+$('#saveNotes').addEventListener('click', saveNotes);
+$('#clearNotes').addEventListener('click', ()=>{if(confirm('Clear notes?')){$('#notes').value='';saveNotes();}});
+loadNotes();
+
+// download notes
+$('#downloadNotes').addEventListener('click', ()=>{
+  const text = $('#notes').value || 'Notes from Interactive Learning Dashboard';
+  const blob = new Blob([text],{type:'text/plain'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = 'notes.txt'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+});
+
+// progress tracking
+function loadProgress(){const p = JSON.parse(localStorage.getItem(PROGRESS_KEY)||'{}');
+  $('#completedQuizzes').textContent = p.completed || 0; const pct = Math.min(100, (p.completed||0)*10); $('#progressPct').textContent = pct + '%'; $('#progressBar').style.width = pct + '%';
+}
+function incrementCompletedQuizzes(){const p = JSON.parse(localStorage.getItem(PROGRESS_KEY)||'{}'); p.completed = (p.completed||0)+1; localStorage.setItem(PROGRESS_KEY, JSON.stringify(p)); loadProgress();}
+function updateProgressOnAnswer(){/* small visual effect or could store per-question metrics */}
+loadProgress();
+
+// theme toggle (very simple, not full light-mode)
+$('#toggleTheme').addEventListener('click', ()=>{
+  const root = document.documentElement;
+  if(root.style.getPropertyValue('--bg')===''){
+    // quick emulate light mode
+    root.style.setProperty('--bg','#f7fafc'); root.style.setProperty('--card','#ffffff'); root.style.setProperty('--muted','#374151'); root.style.setProperty('--accent','#0ea5a4'); document.body.style.color='#0b1220';
+  } else {
+    root.style.removeProperty('--bg'); root.style.removeProperty('--card'); root.style.removeProperty('--muted'); root.style.removeProperty('--accent'); document.body.style.color='';
+  }
+});
+
+// tiny accessibility improvement: keyboard shortcuts
+window.addEventListener('keydown',(e)=>{
+  if(e.ctrlKey && e.key==='Enter'){ e.preventDefault(); runPreview(); }
+  if(e.key==='?'){ alert('Shortcuts:\nCtrl+Enter — Run preview'); }
+});
+
+// helpful: save basic state when user leaves
+window.addEventListener('beforeunload', ()=>{
+  localStorage.setItem(NOTES_KEY, $('#notes').value||'');
+});
+
+// Final sanity: small tests
+console.assert(typeof localStorage !== 'undefined', 'localStorage expected to exist');
+
+  </script>
+</body>
+</html>
